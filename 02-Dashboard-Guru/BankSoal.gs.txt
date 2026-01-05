@@ -1,0 +1,73 @@
+// --- BankSoal.gs (REVISI FIX DROPDOWN) ---
+
+function simpanSoal(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ws = ss.getSheetByName("db_banksoal");
+  if (!ws) { 
+    ws = ss.insertSheet("db_banksoal"); 
+    ws.appendRow(["id", "bab", "jenis", "tp", "kategori", "pertanyaan", "jawaban", "skor"]); 
+  }
+  
+  const id = data.id || ("SOAL-" + new Date().getTime());
+  const rowData = [id, data.bab, data.jenis, data.tp, data.kategori, data.tanya, data.jawab, data.skor];
+  
+  if (data.id) {
+    const allData = ws.getDataRange().getValues();
+    for (let i = 1; i < allData.length; i++) {
+      if (allData[i][0] == data.id) {
+        ws.getRange(i + 1, 1, 1, 8).setValues([rowData]);
+        return "Soal berhasil diperbarui!";
+      }
+    }
+  }
+  
+  ws.appendRow(rowData);
+  return "Soal berhasil ditambahkan!";
+}
+
+function getBankSoal(babFilter) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_banksoal");
+  
+  // Default data kosong jika sheet belum ada
+  let formatif = [];
+  let sumatif = [];
+  let listBab = [];
+
+  if (ws && ws.getLastRow() > 1) {
+    const data = ws.getDataRange().getValues();
+    
+    // 1. Ambil List BAB Unik untuk Dropdown (Kolom B / Index 1)
+    // Filter yang kosong dan duplikat
+    listBab = [...new Set(data.slice(1).map(r => r[1]).filter(x => x && x.toString().trim() !== ""))].sort();
+
+    // 2. Ambil Data Soal
+    for (let i = 1; i < data.length; i++) {
+      const r = data[i];
+      // Jika filter kosong, ambil semua. Jika ada filter, sesuaikan bab.
+      if (babFilter === "" || r[1] === babFilter) {
+        const item = {
+          id: r[0], bab: r[1], jenis: r[2], tp: r[3],
+          kategori: r[4], tanya: r[5], jawab: r[6], skor: r[7]
+        };
+        
+        if (r[2] === 'Formatif') formatif.push(item);
+        else if (r[2] === 'Sumatif') sumatif.push(item);
+      }
+    }
+  }
+  
+  return { formatif: formatif, sumatif: sumatif, listBab: listBab };
+}
+
+function hapusSoal(id) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_banksoal");
+  const data = ws.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == id) {
+      ws.deleteRow(i + 1);
+      return "Soal dihapus.";
+    }
+  }
+}

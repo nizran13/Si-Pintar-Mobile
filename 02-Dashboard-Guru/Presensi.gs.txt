@@ -1,0 +1,158 @@
+// --- Presensi.gs (VERSI FINAL: CRUD + REKAP) ---
+
+// 1. AMBIL DAFTAR KELAS
+function getListKelas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_murid");
+  if (!ws) return [];
+  const lastRow = ws.getLastRow();
+  if (lastRow < 2) return [];
+  const data = ws.getRange(2, 6, lastRow - 1, 1).getDisplayValues();
+  return [...new Set(data.flat())].filter(k => k != "").sort();
+}
+
+// 2. AMBIL SISWA (PLUS STATUS KEHADIRAN JIKA SUDAH ADA)
+function getSiswaPresensiView(kelas, tanggal, mapel) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // A. Ambil Master Murid
+  const wsMurid = ss.getSheetByName("db_murid");
+  const dataMurid = wsMurid.getRange(2, 1, wsMurid.getLastRow() - 1, 7).getDisplayValues();
+  const siswaKelas = dataMurid.filter(row => row[5] == kelas).map(row => ({
+    nama: row[2], nis: row[3], status: 'Hadir', ket: '' // Default
+  }));
+
+  // B. Cek Data Presensi yang Sudah Ada (Untuk Edit)
+  const wsAbsen = ss.getSheetByName("db_presensi");
+  let isEditMode = false;
+  
+  if (wsAbsen && wsAbsen.getLastRow() > 1) {
+    const dataAbsen = wsAbsen.getRange(2, 1, wsAbsen.getLastRow() - 1, 8).getDisplayValues();
+    
+    // Format Tanggal di Sheet biasanya dd/MM/yyyy, pastikan format pencarian sama
+    const tglCari = Utilities.formatDate(new Date(tanggal), Session.getScriptTimeZone(), "dd/MM/yyyy");
+    
+    // Filter data yang cocok (Tanggal, Kelas, Mapel sama)
+    const dataSaved = dataAbsen.filter(r => r[1] == tglCari && r[3] == kelas && r[4] == mapel);
+    
+    if (dataSaved.length > 0) {
+      isEditMode = true;
+      // Update status default dengan status tersimpan
+      siswaKelas.forEach(s => {
+        const saved = dataSaved.find(d => d[5] == s.nama);
+        if (saved) {
+           s.status = saved[6];
+           s.ket = saved[7];
+        }
+      });
+    }
+  }
+  
+  return { siswa: siswaKelas, editMode: isEditMode };
+}
+
+// 3. SIMPAN PRESENSI (SMART UPDATE)
+function simpanPresensiMassal(dataAbsen) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_presensi");
+  if (!ws) return "Error: db_presensi tidak ditemukan!";
+  
+  // Konversi tanggal input ke format string dd/MM/yyyy
+  const tglObj = new Date(dataAbsen.tanggal);
+  const tanggalStr = Utilities.formatDate(tglObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+  const jamStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
+  
+  // A. HAPUS DATA LAMA (JIKA ADA) - Agar tidak duplikat saat Edit
+  const lastRow = ws.getLastRow();
+  if (lastRow > 1) {
+    const dataAll = ws.getRange(2, 1, lastRow - 1, 8).getDisplayValues();
+    // Cari index baris yang COCOK untuk dihapus (loop dari bawah agar aman)
+    for (let i = dataAll.length - 1; i >= 0; i--) {
+      let row = dataAll[i];
+      if (row[1] == tanggalStr && row[3] == dataAbsen.kelas && row[4] == dataAbsen.mapel) {
+        ws.deleteRow(i + 2); // +2 karena index array 0 = baris 2
+      }
+    }
+  }
+  
+  // B. INSERT DATA BARU
+  let dataTulis = [];
+  let nextRow = ws.getLastRow() + 1; // Recalculate last row after delete
+  let noUrut = (nextRow > 2) ? (ws.getRange(nextRow-1, 1).getValue() + 1) : 1;
+  if(isNaN(noUrut)) noUrut = 1;
+
+  dataAbsen.listSiswa.forEach(siswa => {
+    dataTulis.push([
+      noUrut, tanggalStr, jamStr, dataAbsen.kelas, dataAbsen.mapel,
+      siswa.nama, siswa.status, siswa.ket
+    ]);
+    noUrut++;
+  });
+  
+  if (dataTulis.length > 0) {
+    ws.getRange(ws.getLastRow() + 1, 1, dataTulis.length, 8).setValues(dataTulis);
+  }
+  
+  return "Data Presensi Berhasil Disimpan/Diperbarui!";
+}
+
+// 4. REKAP PRESENSI (RENTANG WAKTU - FIXED DATE BUG)
+function getRekapPresensi(kelas, tglMulai, tglAkhir) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // A. List Siswa Kelas Tersebut
+  const wsMurid = ss.getSheetByName("db_murid");
+  const dataMurid = wsMurid.getRange(2, 1, wsMurid.getLastRow()-1, 7).getDisplayValues();
+  // Struktur Objek Rekap: { nama, h, s, i, a }
+  let rekapSiswa = dataMurid.filter(r => r[5] == kelas).map(r => ({
+    nama: r[2], nis: r[3], h:0, s:0, i:0, a:0
+  }));
+  
+  // B. Ambil Data Presensi
+  const wsAbsen = ss.getSheetByName("db_presensi");
+  if (!wsAbsen || wsAbsen.getLastRow() < 2) return rekapSiswa; 
+  
+  const dataAbsen = wsAbsen.getRange(2, 1, wsAbsen.getLastRow()-1, 8).getDisplayValues();
+  
+  // [FIX] Helper Parsing Tanggal Database (dd/MM/yyyy) -> Local Date
+  const parseDbDate = (str) => {
+    const parts = str.split('/'); 
+    // parts[0]=dd, parts[1]=MM, parts[2]=yyyy
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+  };
+  
+  // [FIX] Helper Parsing Tanggal Input (yyyy-MM-dd) -> Local Date
+  // Kita manual split agar tidak dianggap UTC oleh new Date()
+  const parseInputDate = (str) => {
+    const parts = str.split('-'); 
+    // parts[0]=yyyy, parts[1]=MM, parts[2]=dd
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  
+  const d1 = parseInputDate(tglMulai);
+  const d2 = parseInputDate(tglAkhir);
+  
+  // D. Loop & Hitung
+  dataAbsen.forEach(row => {
+    // Cek Kelas
+    if (row[3] != kelas) return;
+    
+    // Cek Tanggal Range
+    let tglRow = parseDbDate(row[1]);
+    
+    // Bandingkan Waktu (Pastikan >= d1 dan <= d2)
+    if (tglRow.getTime() >= d1.getTime() && tglRow.getTime() <= d2.getTime()) {
+       let target = rekapSiswa.find(s => s.nama == row[5]);
+       if (target) {
+          let st = row[6].toLowerCase(); 
+          
+          if(st.includes('hadir')) target.h++;
+          else if(st.includes('sakit')) target.s++;
+          else if(st.includes('izin')) target.i++;
+          else if(st.includes('alpha')) target.a++;
+       }
+    }
+  });
+  
+  return rekapSiswa;
+}

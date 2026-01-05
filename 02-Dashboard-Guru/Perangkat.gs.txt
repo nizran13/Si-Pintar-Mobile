@@ -1,0 +1,102 @@
+// --- Perangkat.gs ---
+
+// 1. INFO SEKOLAH
+function getInfoSekolah() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_pengaturan");
+  const data = ws.getDataRange().getValues();
+  let info = { sekolah: "Nama Sekolah", mapel: "Matematika", guru: "Nama Guru", nip: "-", kepsek: "Kepala Sekolah", nip_kepsek: "-", kota: "Kota" };
+  data.forEach(r => {
+    if (r[0] == 'nama_sekolah') info.sekolah = r[1];
+    if (r[0] == 'mata_pelajaran') info.mapel = r[1];
+    if (r[0] == 'nama_guru') info.guru = r[1];
+    if (r[0] == 'nip_guru') info.nip = r[1];
+    if (r[0] == 'kepala_sekolah') info.kepsek = r[1];
+    if (r[0] == 'nip_kepsek') info.nip_kepsek = r[1];
+    if (r[0] == 'kota_sekolah') info.kota = r[1];
+  });
+  return info;
+}
+
+// 2. DATA ATP (GABUNGAN CP & TP) - VERSI ANTI-STUCK
+function getDataATP(filterKelas, filterFase) {
+  var result = { success: true, cp: [], tp: [] };
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // --- AMBIL DATA CP ---
+    const wsCP = ss.getSheetByName("db_cp");
+    if (wsCP && wsCP.getLastRow() > 1) {
+      // Ambil semua data (Aman walau kolom kurang)
+      const dataCP = wsCP.getDataRange().getDisplayValues();
+      // dataCP[0] header, data mulai index 1
+      if (dataCP.length > 1) {
+        result.cp = dataCP.slice(1)
+          .filter(r => r[2] == filterFase) // Kolom C (Index 2) = Fase
+          .map(r => ({ 
+            elemen: r[1] || "-", // Kolom B
+            isi: r[3] || "-"     // Kolom D
+          }));
+      }
+    }
+
+    // --- AMBIL DATA TP ---
+    const wsTP = ss.getSheetByName("db_tp");
+    if (wsTP && wsTP.getLastRow() > 1) {
+      const dataTP = wsTP.getDataRange().getDisplayValues();
+      if (dataTP.length > 1) {
+        result.tp = dataTP.slice(1)
+          .filter(r => r[3] == filterKelas) // Kolom D (Index 3) = Kelas/Sem
+          .map(r => ({
+            alur: r[1] || "0",   // Kolom B
+            materi: r[4] || "-", // Kolom E
+            tujuan: r[5] || "-", // Kolom F
+            alokasi: r[2] || "-" // Kolom C
+          }));
+        
+        // Urutkan TP berdasarkan Alur (Pastikan jadi angka)
+        result.tp.sort((a, b) => {
+          return parseInt(a.alur.replace(/\D/g,'') || 0) - parseInt(b.alur.replace(/\D/g,'') || 0);
+        });
+      }
+    }
+
+    return result;
+
+  } catch (e) {
+    // Jika error fatal, kirim pesan error agar tidak muter terus
+    return { success: false, message: "Error Backend: " + e.toString() };
+  }
+}
+
+// --- FUNGSI CRUD CP (Sama seperti sebelumnya) ---
+function simpanCP(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(); const ws = ss.getSheetByName("db_cp");
+  ws.appendRow([ws.getLastRow(), data.elemen, data.fase, data.isi, data.tingkat||"-"]); return "Sukses!";
+}
+function getDataCP(filterFase) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(); const ws = ss.getSheetByName("db_cp");
+  if (!ws || ws.getLastRow() < 2) return [];
+  let d = ws.getRange(2, 1, ws.getLastRow()-1, 5).getDisplayValues();
+  let r = d.map((x,i)=>({rowIdx:i+2, no:x[0], elemen:x[1], fase:x[2], isi:x[3]}));
+  if(filterFase) r=r.filter(x=>x.fase==filterFase); return r;
+}
+function updateCP(d) { const ss=SpreadsheetApp.getActiveSpreadsheet(); ss.getSheetByName("db_cp").getRange(parseInt(d.rowIdx),2,1,4).setValues([[d.elemen,d.fase,d.isi,d.tingkat||"-"]]); return "Update Sukses!"; }
+function hapusCP(i) { SpreadsheetApp.getActiveSpreadsheet().getSheetByName("db_cp").deleteRow(parseInt(i)); return "Hapus Sukses!"; }
+
+// --- FUNGSI CRUD TP (Sama seperti sebelumnya) ---
+function simpanTP(d) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(); const ws = ss.getSheetByName("db_tp");
+  ws.appendRow([ws.getLastRow(), d.alur, d.alokasi, d.kelas, d.materi, d.tujuan, d.pemahaman, d.asesmen, d.metode]); return "Sukses!";
+}
+function getDataTP(fk) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(); const ws = ss.getSheetByName("db_tp");
+  if (!ws || ws.getLastRow() < 2) return [];
+  let d = ws.getRange(2, 1, ws.getLastRow()-1, 9).getDisplayValues();
+  let r = d.map((x,i)=>({rowIdx:i+2, alur:x[1], alokasi:x[2], kelas:x[3], materi:x[4], tujuan:x[5], pemahaman:x[6], asesmen:x[7], metode:x[8]}));
+  if(fk) r=r.filter(x=>x.kelas==fk);
+  r.sort((a,b)=>parseInt(a.alur)-parseInt(b.alur)); return r;
+}
+function updateTP(d) { const ss=SpreadsheetApp.getActiveSpreadsheet(); ss.getSheetByName("db_tp").getRange(parseInt(d.rowIdx),2,1,8).setValues([[d.alur,d.alokasi,d.kelas,d.materi,d.tujuan,d.pemahaman,d.asesmen,d.metode]]); return "Update Sukses!"; }
+function hapusTP(i) { SpreadsheetApp.getActiveSpreadsheet().getSheetByName("db_tp").deleteRow(parseInt(i)); return "Hapus Sukses!"; }

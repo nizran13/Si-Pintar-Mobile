@@ -1,0 +1,140 @@
+// --- Agenda.gs (FINAL - CRUD & REPORT) ---
+
+// 1. SIMPAN ATAU UPDATE AGENDA
+function simpanAgenda(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ws = ss.getSheetByName("db_agenda");
+  if (!ws) { 
+    ws = ss.insertSheet("db_agenda"); 
+    ws.appendRow(["id", "tanggal", "hari", "tp", "waktu_info", "materi", "alat", "tugas", "catatan"]); 
+  }
+  
+  const allData = ws.getDataRange().getDisplayValues();
+  
+  // Cek apakah mode EDIT (ID sudah ada?)
+  let barisEdit = -1;
+  if (data.id) {
+    for (let i = 1; i < allData.length; i++) {
+      if (allData[i][0] == data.id) {
+        barisEdit = i + 1; // Baris Excel (mulai 1)
+        break;
+      }
+    }
+  }
+
+  const rowData = [
+    data.id || ("AGN-" + new Date().getTime()), // Jika ID kosong, buat baru
+    data.tanggal,
+    data.hari,
+    data.tp,
+    data.waktu,
+    data.materi,
+    data.alat,
+    data.tugas,
+    data.catatan
+  ];
+
+  if (barisEdit !== -1) {
+    // UPDATE DATA LAMA
+    ws.getRange(barisEdit, 1, 1, 9).setValues([rowData]);
+    return "Data Agenda Berhasil Diperbarui!";
+  } else {
+    // INSERT DATA BARU
+    ws.appendRow(rowData);
+    return "Data Agenda Baru Berhasil Disimpan!";
+  }
+}
+
+// 2. HAPUS AGENDA
+function hapusAgenda(id) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_agenda");
+  const data = ws.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == id) {
+      ws.deleteRow(i + 1);
+      return "Data berhasil dihapus.";
+    }
+  }
+  return "Data tidak ditemukan.";
+}
+
+// 3. AMBIL LAPORAN (FILTER TANGGAL)
+function getLaporanAgenda(tglMulai, tglSelesai) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_agenda");
+  if (!ws || ws.getLastRow() < 2) return [];
+
+  const data = ws.getDataRange().getDisplayValues(); // Ambil semua data sebagai string
+  const hasil = [];
+
+  // Konversi string tanggal input ke Date object untuk perbandingan
+  const start = new Date(tglMulai);
+  const end = new Date(tglSelesai);
+
+  // Loop data (skip header)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const tglRow = new Date(row[1]); // Kolom B adalah tanggal (YYYY-MM-DD)
+    
+    // Cek range tanggal
+    if (tglRow >= start && tglRow <= end) {
+      hasil.push({
+        id: row[0],
+        tanggal: row[1],
+        hari: row[2],
+        tp: row[3],
+        waktu: row[4],
+        materi: row[5],
+        alat: row[6],
+        tugas: row[7],
+        catatan: row[8]
+      });
+    }
+  }
+  
+  // Urutkan berdasarkan tanggal (Ascending)
+  hasil.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+  
+  return hasil;
+}
+
+// 4. AMBIL OPSI DROPDOWN (SAMA SEPERTI SEBELUMNYA)
+function getOpsiAgenda() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  let listTP = [], listJadwal = [], listMateri = [];
+  
+  // TP
+  const wsTP = ss.getSheetByName("db_tp");
+  if (wsTP && wsTP.getLastRow() > 1) {
+    const d = wsTP.getDataRange().getDisplayValues();
+    const h = d[0].map(x => x.toLowerCase());
+    let idx = h.findIndex(x => x.includes("tujuan")); if(idx===-1) idx=5;
+    listTP = [...new Set(d.slice(1).map(r => r[idx]).filter(x => x !== ""))];
+  }
+  
+  // JADWAL
+  const wsJadwal = ss.getSheetByName("db_jadwal");
+  if (wsJadwal && wsJadwal.getLastRow() > 1) {
+    const d = wsJadwal.getDataRange().getDisplayValues();
+    const h = d[0].map(x => x.toLowerCase());
+    let idxHari=h.findIndex(x=>x.includes("hari")), idxJP=h.findIndex(x=>x.includes("jp")), idxWaktu=h.findIndex(x=>x.includes("waktu")), idxKelas=h.findIndex(x=>x.includes("kelas"));
+    if(idxHari===-1) idxHari=1; if(idxJP===-1) idxJP=2; if(idxWaktu===-1) idxWaktu=3; if(idxKelas===-1) idxKelas=5;
+    for(let i=1; i<d.length; i++) {
+      if(d[i][idxHari]) listJadwal.push(`${d[i][idxHari]} | JP ${d[i][idxJP]} (${d[i][idxWaktu]}) | Kls ${d[i][idxKelas]}`);
+    }
+  }
+
+  // MATERI
+  const wsModul = ss.getSheetByName("db_modul");
+  if (wsModul && wsModul.getLastRow() > 1) {
+    const d = wsModul.getDataRange().getDisplayValues();
+    const h = d[0].map(x => x.toLowerCase());
+    let idx = h.findIndex(x => x.includes("materi")); if(idx===-1) idx=4;
+    listMateri = [...new Set(d.slice(1).map(r => r[idx]).filter(x => x !== ""))];
+  }
+
+  return { tps: listTP, jadwals: listJadwal, materis: listMateri };
+}

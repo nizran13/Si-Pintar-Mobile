@@ -1,0 +1,118 @@
+// --- Modul.gs ---
+
+// 1. SIMPAN MODUL (Support JSON untuk Data Kompleks)
+function simpanModul(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_modul");
+  if (!ws) return "Error: Database db_modul tidak ditemukan!";
+  
+  const noUrut = ws.getLastRow();
+  
+  // Kita bungkus data detail menjadi JSON string agar muat di 1 sel
+  const jsonIdentifikasi = JSON.stringify(data.identifikasi);
+  const jsonDesain = JSON.stringify(data.desain);
+  const jsonKegiatan = JSON.stringify(data.kegiatan); // Ini menampung banyak pertemuan
+  const jsonAsesmen = JSON.stringify(data.asesmen);
+  const jsonLampiran = JSON.stringify(data.lampiran);
+
+  ws.appendRow([
+    noUrut, 
+    data.fase, 
+    data.kelas, 
+    data.materi, 
+    data.alokasi,
+    jsonIdentifikasi,
+    jsonDesain,
+    jsonKegiatan,
+    jsonAsesmen,
+    jsonLampiran
+  ]);
+  
+  return "Sukses! Modul Ajar berhasil disimpan.";
+}
+
+// 2. AMBIL DATA MODUL (Unpack JSON)
+function getDataModul(filterKelas) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_modul");
+  if (!ws || ws.getLastRow() < 2) return [];
+  
+  const data = ws.getRange(2, 1, ws.getLastRow()-1, 10).getDisplayValues();
+  
+  // Filter & Map
+  let result = data.map((row, i) => {
+    try {
+      return {
+        rowIdx: i + 2,
+        no: row[0],
+        fase: row[1],
+        kelas: row[2],
+        materi: row[3],
+        alokasi: row[4],
+        // Parse JSON string kembali jadi Object
+        identifikasi: JSON.parse(row[5] || "{}"),
+        desain: JSON.parse(row[6] || "{}"),
+        kegiatan: JSON.parse(row[7] || "[]"),
+        asesmen: JSON.parse(row[8] || "{}"),
+        lampiran: JSON.parse(row[9] || "{}")
+      };
+    } catch (e) {
+      return null; // Skip jika data rusak
+    }
+  }).filter(item => item !== null);
+
+  if (filterKelas && filterKelas !== "") {
+    result = result.filter(item => item.kelas === filterKelas);
+  }
+  
+  return result;
+}
+
+// 3. UPDATE MODUL
+function updateModul(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_modul");
+  
+  const jsonIdentifikasi = JSON.stringify(data.identifikasi);
+  const jsonDesain = JSON.stringify(data.desain);
+  const jsonKegiatan = JSON.stringify(data.kegiatan);
+  const jsonAsesmen = JSON.stringify(data.asesmen);
+  const jsonLampiran = JSON.stringify(data.lampiran);
+
+  // Update Kolom B s/d J
+  ws.getRange(parseInt(data.rowIdx), 2, 1, 9).setValues([[
+    data.fase, 
+    data.kelas, 
+    data.materi, 
+    data.alokasi,
+    jsonIdentifikasi,
+    jsonDesain,
+    jsonKegiatan,
+    jsonAsesmen,
+    jsonLampiran
+  ]]);
+  
+  return "Sukses! Modul Ajar diperbarui.";
+}
+
+// 4. HAPUS MODUL
+function hapusModul(idx) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_modul");
+  ws.deleteRow(parseInt(idx));
+  return "Modul dihapus.";
+}
+
+// 5. FITUR PINTAR: AMBIL OPSI TP DARI DATABASE TP (AUTO-FILL)
+function getOpsiTP(kelas) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_tp");
+  if (!ws || ws.getLastRow() < 2) return [];
+  
+  const data = ws.getRange(2, 1, ws.getLastRow()-1, 9).getDisplayValues();
+  // Filter TP berdasarkan kelas, ambil teks Tujuannya saja
+  // Format Kelas di db_tp misalnya "VII/1". Kita cocokkan parsial atau persis.
+  return data
+    .filter(r => r[3].includes(kelas)) // Misal modul kelas "VII", dia ambil "VII/1" & "VII/2"
+    .map(r => r[5]); // Kolom F adalah Tujuan
+}

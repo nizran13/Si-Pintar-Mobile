@@ -1,0 +1,56 @@
+// --- Prota.gs (VERSI GENERATOR OTOMATIS) ---
+
+// AMBIL DATA PROTA VIEW (GABUNGAN CP & TP PER SEMESTER)
+function getProtaView(kelasInput, faseInput) {
+  var result = { success: true, cp: [], sem1: [], sem2: [] };
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // 1. AMBIL CP (Untuk Header Dokumen)
+    const wsCP = ss.getSheetByName("db_cp");
+    if (wsCP && wsCP.getLastRow() > 1) {
+      const dataCP = wsCP.getDataRange().getDisplayValues();
+      if (dataCP.length > 1) {
+        result.cp = dataCP.slice(1)
+          .filter(r => r[2] == faseInput) // Kolom C = Fase
+          .map(r => ({ elemen: r[1], isi: r[3] }));
+      }
+    }
+
+    // 2. AMBIL TP (Untuk Isi Tabel)
+    const wsTP = ss.getSheetByName("db_tp");
+    if (wsTP && wsTP.getLastRow() > 1) {
+      const dataTP = wsTP.getDataRange().getDisplayValues();
+      if (dataTP.length > 1) {
+        // Filter TP milik Kelas yang dipilih (Misal "VII")
+        // Kita cari yang kolom 'kelas_sem' mengandung string kelas (Contoh "VII/1" atau "VII/2")
+        const rawTP = dataTP.slice(1).filter(r => r[3].startsWith(kelasInput));
+        
+        // Pisahkan Semester 1 dan 2
+        // Format DB TP Kolom D (Indeks 3) = "VII/1" atau "VII/2"
+        
+        // SEMESTER 1 (Ganjil)
+        result.sem1 = rawTP
+          .filter(r => r[3].includes("/1"))
+          .map(r => ({
+            alur: r[1], materi: r[4], tujuan: r[5], waktu: r[2]
+          }))
+          .sort((a,b) => parseInt(a.alur) - parseInt(b.alur));
+
+        // SEMESTER 2 (Genap)
+        result.sem2 = rawTP
+          .filter(r => r[3].includes("/2"))
+          .map(r => ({
+            alur: r[1], materi: r[4], tujuan: r[5], waktu: r[2]
+          }))
+          .sort((a,b) => parseInt(a.alur) - parseInt(b.alur));
+      }
+    }
+
+    return result;
+
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}

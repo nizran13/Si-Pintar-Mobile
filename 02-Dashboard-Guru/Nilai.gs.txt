@@ -1,0 +1,118 @@
+// --- Nilai.gs (VERSI FINAL - SMART COLUMN DETECTION) ---
+
+// 1. SIMPAN DATA NILAI
+function simpanNilai(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ws = ss.getSheetByName("db_nilai");
+  
+  // Jika sheet belum ada, buat baru
+  if (!ws) { 
+    ws = ss.insertSheet("db_nilai"); 
+    ws.appendRow(["id", "kelas", "semester", "tahun", "config", "nilai"]); 
+  }
+  
+  const idUnik = data.kelas + "-" + data.semester;
+  const jsonConfig = JSON.stringify(data.config);
+  const jsonNilai = JSON.stringify(data.nilaiSiswa);
+  
+  const allData = ws.getDataRange().getValues();
+  let rowIdx = -1;
+  
+  // Cek apakah data sudah ada (untuk di-update)
+  for (let i = 1; i < allData.length; i++) {
+    if (allData[i][0] == idUnik) { rowIdx = i + 1; break; }
+  }
+  
+  if (rowIdx !== -1) {
+    ws.getRange(rowIdx, 5, 1, 2).setValues([[jsonConfig, jsonNilai]]);
+  } else {
+    ws.appendRow([idUnik, data.kelas, data.semester, data.tahun, jsonConfig, jsonNilai]);
+  }
+  
+  return "Data Nilai Berhasil Disimpan!";
+}
+
+// 2. AMBIL LIST KELAS (CARI KOLOM "KELAS" SECARA OTOMATIS)
+function getListKelasMurid() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("db_murid");
+  if (!ws) return [];
+  
+  // Ambil Header (Baris 1) untuk mencari posisi kolom "Kelas"
+  const headers = ws.getRange(1, 1, 1, ws.getLastColumn()).getValues()[0];
+  let colKelasIdx = headers.findIndex(h => h.toString().toLowerCase().includes("kelas"));
+  
+  // Jika tidak ketemu kata "Kelas", pakai default kolom F (index 5)
+  if (colKelasIdx === -1) colKelasIdx = 5; 
+  
+  const data = ws.getRange(2, 1, ws.getLastRow()-1, ws.getLastColumn()).getDisplayValues();
+  
+  // Ambil data unik kelas & urutkan
+  let listKelas = [...new Set(data.map(r => r[colKelasIdx]).filter(k => k !== ""))].sort();
+  return listKelas;
+}
+
+// 3. AMBIL DATA NILAI (CARI KOLOM "NAMA" & "KELAS" SECARA OTOMATIS)
+function getDataNilai(kelas, semester) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const wsMurid = ss.getSheetByName("db_murid");
+  
+  let siswaList = [];
+  
+  if (wsMurid) {
+    // A. DETEKSI POSISI KOLOM (SUPAYA TIDAK TERTUKAR DENGAN FOTO)
+    const headers = wsMurid.getRange(1, 1, 1, wsMurid.getLastColumn()).getValues()[0];
+    
+    // Cari index kolom yang judulnya mengandung kata "Nama"
+    let idxNama = headers.findIndex(h => h.toString().toLowerCase().includes("nama"));
+    if (idxNama === -1) idxNama = 1; // Fallback ke Kolom B jika gagal deteksi
+    
+    // Cari index kolom yang judulnya mengandung kata "Kelas"
+    let idxKelas = headers.findIndex(h => h.toString().toLowerCase().includes("kelas"));
+    if (idxKelas === -1) idxKelas = 5; // Fallback ke Kolom F jika gagal deteksi
+    
+    // Cari index kolom "Status" (Opsional, untuk filter Aktif)
+    let idxStatus = headers.findIndex(h => h.toString().toLowerCase().includes("status"));
+
+    // B. AMBIL DATA
+    const dataMurid = wsMurid.getRange(2, 1, wsMurid.getLastRow()-1, wsMurid.getLastColumn()).getDisplayValues();
+    
+    siswaList = dataMurid
+      .filter(r => {
+        // Filter Kelas Sesuai Dropdown
+        const isKelasMatch = r[idxKelas] == kelas;
+        // Filter Status Aktif (Jika kolom status ada)
+        const isAktif = (idxStatus !== -1) ? r[idxStatus] == 'Aktif' : true; 
+        return isKelasMatch && isAktif;
+      })
+      .map(r => ({ 
+        nama: r[idxNama], // AMBIL DARI KOLOM YANG JUDULNYA "NAMA"
+        nis: "" 
+      }));
+      
+    // C. SORTIR SESUAI ABJAD (A-Z)
+    siswaList.sort((a, b) => a.nama.localeCompare(b.nama));
+  }
+  
+  // D. AMBIL DATA NILAI TERSIMPAN
+  const wsNilai = ss.getSheetByName("db_nilai");
+  let savedConfig = null;
+  let savedNilai = {};
+  
+  if (wsNilai && wsNilai.getLastRow() > 1) {
+    const dataNilai = wsNilai.getDataRange().getValues();
+    const idUnik = kelas + "-" + semester;
+    const found = dataNilai.find(r => r[0] == idUnik);
+    if (found) {
+      savedConfig = JSON.parse(found[4] || "null");
+      savedNilai = JSON.parse(found[5] || "{}");
+    }
+  }
+
+  // Config Default
+  if (!savedConfig) {
+    savedConfig = { formatif: [{ materi: "Materi 1", tps: ["TP 1", "TP 2"] }], sumatif: ["Sumatif 1"] };
+  }
+
+  return { siswa: siswaList, config: savedConfig, nilai: savedNilai };
+}
