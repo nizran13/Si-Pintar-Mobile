@@ -137,4 +137,5 @@ function getOpsiAgenda() {
   }
 
   return { tps: listTP, jadwals: listJadwal, materis: listMateri };
+
 }
