@@ -1,1 +1,281 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="https://drive.google.com/thumbnail?id=1B6dqG4V87Ce0CdxFDkSYAPW4hqjxYCiB&sz=w500">
+    <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1B6dqG4V87Ce0CdxFDkSYAPW4hqjxYCiB&sz=w500">
+    <title>Login Si-Pintar</title>
+    <style>
+      /* --- STYLE DASAR --- */
+      body { 
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+        
+        /* PENGATURAN POSISI (JANGAN DIHAPUS) */
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        min-height: 100vh; 
+        margin: 0; 
+        
+        /* SETTING BACKGROUND KEREN */
+        background-image: url('https://drive.google.com/thumbnail?id=1lmAkTJIfmQxxDhAD_c6Ah2THfFBGny3s&sz=w1920');
+        background-color: #e9ecef; /* Warna cadangan kalau gambar gagal load */
+        background-size: cover;    /* Memenuhi seluruh layar */
+        background-position: center; /* Fokus gambar di tengah */
+        background-repeat: no-repeat;
+        background-attachment: fixed; /* Gambar diam saat scroll */
+      }
 
+      .container { 
+        width: 90%; 
+        max-width: 380px; 
+        padding: 0 0 20px 0; 
+        background: white; 
+        border-radius: 20px; 
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        backdrop-filter: blur(5px);
+        text-align: center; 
+        overflow: hidden; 
+        position: relative; 
+      }
+      
+      /* --- HEADER & LOGO --- */
+      .accent-header { 
+        background: linear-gradient(135deg, #007bff, #0056b3); 
+        height: 110px; 
+        width: 100%;
+        margin-bottom: 0;
+      }
+
+      .logo-container {
+        margin-top: -60px; 
+        margin-bottom: 10px;
+      }
+
+      .logo-img {
+        width: 100px; 
+        height: 100px;
+        background: white;
+        border-radius: 50%; 
+        border: 4px solid white; 
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        object-fit: contain; 
+        padding: 2px;
+      }
+      
+      /* --- TYPOGRAPHY --- */
+      h2 { color: #333; margin: 5px 0 5px 0; font-weight: 800; font-size: 24px; letter-spacing: 1px; }
+      
+      .app-desc {
+        color: #555;
+        font-size: 13px;
+        margin: 0 20px 5px 20px;
+        line-height: 1.4;
+        font-weight: 500;
+      }
+
+      .school-name { 
+        color: #007bff; 
+        margin: 5px 0 20px 0; 
+        font-size: 14px; 
+        font-weight: bold;
+      }
+      
+      /* --- FORM AREA --- */
+      .form-area { padding: 0 30px; }
+
+      input { 
+        width: 100%; 
+        padding: 14px; 
+        margin: 8px 0; 
+        border: 1px solid #ddd; 
+        border-radius: 10px; 
+        box-sizing: border-box; 
+        font-size: 15px; 
+        background: #f8f9fa;
+        transition: 0.3s;
+      }
+      input:focus { 
+        background: white;
+        border-color: #007bff; 
+        outline: none; 
+      }
+      
+      button { 
+        width: 100%; 
+        padding: 14px; 
+        border: none; 
+        border-radius: 10px; 
+        cursor: pointer; 
+        font-size: 16px; 
+        font-weight: bold; 
+        transition: 0.3s; 
+        margin-top: 15px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      }
+      .btn-login { background: #007bff; color: white; }
+      .btn-confirm { background: #28a745; color: white; }
+
+      /* --- TAMBAHAN BARU: ANIMASI KLIK (PRESS EFFECT) --- */
+      .btn-confirm:active {
+        transform: scale(0.95) translateY(2px); /* Mengecil sedikit & turun ke bawah */
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2); /* Bayangan menipis seolah menempel kertas */
+        transition: 0.1s; /* Transisi cepat agar terasa responsif */
+      }  /* <--- JANGAN LUPA TANDA KURUNG TUTUP INI YA NDAN! */
+
+      .copyright {
+        margin-top: 25px;
+        margin-bottom: 10px;
+        font-size: 11px;
+        color: #adb5bd;
+        font-weight: 500;
+      }
+
+      /* --- STYLE HALAMAN KONFIRMASI --- */
+      .hidden { display: none; }
+      #status { color: #dc3545; margin-top: 15px; font-size: 13px; font-weight: 500;}
+
+      .profile-photo {
+        width: 100px; height: 100px;
+        border-radius: 50%;
+        border: 4px solid white;
+        margin-top: -50px;
+        background: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        object-fit: cover; 
+      }
+
+      .info-table {
+        width: 100%;
+        margin-top: 15px;
+        margin-bottom: 15px;
+        font-size: 13px;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+      }
+      
+      .info-table td {
+        padding: 5px;
+        text-align: left;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      
+      .label-col { font-weight: bold; color: #666; width: 35%; vertical-align: top; }
+      .val-col { color: #333; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+
+    <div id="login-page" class="container">
+      <div class="accent-header"></div>
+      
+      <div class="logo-container">
+        <img src="https://drive.google.com/thumbnail?id=1B6dqG4V87Ce0CdxFDkSYAPW4hqjxYCiB&sz=w1000" class="logo-img" alt="Logo Si-Pintar">
+      </div>
+
+      <h2>SI-PINTAR</h2>
+      <p class="app-desc">Sistem Informasi, Presensi, dan<br>Inventaris Perangkat Ajar</p>
+      <p class="school-name">SMP Negeri 1 Modayag</p>
+      
+      <div class="form-area">
+        <input type="text" id="user" placeholder="Username">
+        <input type="password" id="pass" placeholder="Password">
+        <button class="btn-login" onclick="login()">MASUK APLIKASI</button>
+        <div id="status"></div>
+        <div class="copyright">&copy; 2026 v1.0 - Halaman Login</div>
+      </div>
+    </div>
+
+    <div id="confirm-page" class="container hidden">
+      <div class="accent-header" style="height: 90px; background: #28a745;"></div>
+      
+      <img id="guru-photo" src="" class="profile-photo" alt="Foto Guru">
+
+      <h3 style="margin: 10px 0 5px 0; color: #333;">Konfirmasi Akses</h3>
+      <div style="font-size: 12px; color: #888;">Data Terverifikasi</div>
+      
+      <div class="form-area">
+        <table class="info-table">
+          <tr>
+            <td class="label-col">Nama</td>
+            <td class="val-col" id="guru-name"></td>
+          </tr>
+          <tr>
+            <td class="label-col">NIP</td>
+            <td class="val-col" id="guru-nip"></td>
+          </tr>
+          <tr>
+            <td class="label-col">Pangkat</td>
+            <td class="val-col" id="guru-pangkat"></td>
+          </tr>
+          <tr>
+            <td class="label-col">Mapel</td>
+            <td class="val-col" id="guru-mapel"></td>
+          </tr>
+        </table>
+
+        <button class="btn-confirm" id="btn-dashboard">BUKA DASHBOARD</button>
+        
+        <div class="copyright" style="margin-top: 15px;">
+          &copy; 2026 SMP Negeri 1 Modayag
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var urlTujuan = "";
+      var defaultPhoto = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+
+      function login() {
+        var u = document.getElementById('user').value;
+        var p = document.getElementById('pass').value;
+        var s = document.getElementById('status');
+        var btn = document.querySelector('.btn-login');
+        
+        s.style.color = "#007bff";
+        s.innerText = "Memverifikasi...";
+        btn.innerText = "Mengecek...";
+        btn.style.opacity = "0.7";
+
+        google.script.run.withSuccessHandler(function(res) {
+          btn.innerText = "MASUK APLIKASI"; 
+          btn.style.opacity = "1";
+
+          if (res.status === "success") {
+            document.getElementById('login-page').classList.add('hidden');
+            document.getElementById('confirm-page').classList.remove('hidden');
+            
+            // Isi Data Konfirmasi
+            document.getElementById('guru-name').innerText = res.nama;
+            document.getElementById('guru-nip').innerText = res.nip || "-";
+            document.getElementById('guru-pangkat').innerText = res.pangkat || "-";
+            document.getElementById('guru-mapel').innerText = res.mapel || "-";
+            
+            var imgElement = document.getElementById('guru-photo');
+            var fotoIdKirim = ""; // Variabel untuk dikirim ke Dashboard
+
+            if (res.fotoId) {
+              imgElement.src = "https://drive.google.com/thumbnail?id=" + res.fotoId + "&sz=w500";
+              fotoIdKirim = res.fotoId;
+            } else {
+              imgElement.src = defaultPhoto;
+            }
+
+            // --- BAGIAN PENTING: MENGIRIM NAMA & FOTO KE URL ---
+            // Kita tambahkan parameter &foto=...
+            urlTujuan = res.url + "?nama=" + encodeURIComponent(res.nama) + "&foto=" + encodeURIComponent(fotoIdKirim);
+            
+            document.getElementById('btn-dashboard').onclick = function() {
+              window.top.location.href = urlTujuan;
+            };
+
+          } else {
+            s.style.color = "#dc3545";
+            s.innerText = res.message;
+          }
+        }).checkLogin(u, p);
+      }
+    </script>
+  </body>
+</html>
