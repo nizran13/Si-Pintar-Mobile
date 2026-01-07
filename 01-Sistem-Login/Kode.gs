@@ -33,11 +33,19 @@ function checkLogin(username, password) {
   return { status: "failed", message: "Username atau Password Salah!" };
 }
 
-// Fungsi agar script bisa dipanggil oleh Aplikasi Android (API Mode)
+// Fungsi agar script bisa dipanggil oleh GitHub Pages (API Mode)
 function doPost(e) {
   var action = e.parameter.action;
+  
   if (action == "login") {
-    var res = checkLogin(e.parameter.username, e.parameter.password);
-    return ContentService.createTextOutput(JSON.stringify(res)).setMimeType(ContentService.MimeType.JSON);
+    // PERUBAHAN DI SINI:
+    // Sesuaikan dengan yang dikirim dari Index.html (user & pass)
+    var u = e.parameter.user; 
+    var p = e.parameter.pass;
+    
+    var res = checkLogin(u, p);
+    
+    return ContentService.createTextOutput(JSON.stringify(res))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
