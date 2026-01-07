@@ -224,57 +224,115 @@
     </div>
 
     <script>
+      // --- MASUKKAN LINK DEPLOYMENT (WEB APP URL) DI SINI ---
+      const API_URL = "https://script.google.com/macros/s/AKfycbwwhLeEYV6GqbJyZGqnRoQiLa3tqDeKR7X_sZy-qZGprbdlOs4t3onc-h6MrBO-D1Lg/exec;
+
       var urlTujuan = "";
       var defaultPhoto = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
 
-      function login() {
+      async function login() {
         var u = document.getElementById('user').value;
         var p = document.getElementById('pass').value;
         var s = document.getElementById('status');
         var btn = document.querySelector('.btn-login');
         
+        // Validasi input kosong
+        if(!u || !p) {
+            s.style.color = "#dc3545";
+            s.innerText = "Username dan Password harus diisi!";
+            return;
+        }
+
+        // Tampilan Loading
         s.style.color = "#007bff";
         s.innerText = "Memverifikasi...";
         btn.innerText = "Mengecek...";
         btn.style.opacity = "0.7";
+        btn.disabled = true;
 
-        google.script.run.withSuccessHandler(function(res) {
-          btn.innerText = "MASUK APLIKASI"; 
-          btn.style.opacity = "1";
+        try {
+            // --- GANTI google.script.run DENGAN FETCH ---
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: new URLSearchParams({
+                    action: 'login', // Pastikan di Kode.gs ada if(action == 'login')
+                    user: u,
+                    pass: p
+                })
+            });
 
-          if (res.status === "success") {
-            document.getElementById('login-page').classList.add('hidden');
-            document.getElementById('confirm-page').classList.remove('hidden');
-            
-            // Isi Data Konfirmasi
-            document.getElementById('guru-name').innerText = res.nama;
-            document.getElementById('guru-nip').innerText = res.nip || "-";
-            document.getElementById('guru-pangkat').innerText = res.pangkat || "-";
-            document.getElementById('guru-mapel').innerText = res.mapel || "-";
-            
-            var imgElement = document.getElementById('guru-photo');
-            var fotoIdKirim = ""; // Variabel untuk dikirim ke Dashboard
+            const res = await response.json();
 
-            if (res.fotoId) {
-              imgElement.src = "https://drive.google.com/thumbnail?id=" + res.fotoId + "&sz=w500";
-              fotoIdKirim = res.fotoId;
+            // Kembalikan Tombol
+            btn.innerText = "MASUK APLIKASI"; 
+            btn.style.opacity = "1";
+            btn.disabled = false;
+
+            if (res.status === "success") {
+                // Sembunyikan Login, Tampilkan Konfirmasi
+                document.getElementById('login-page').classList.add('hidden');
+                document.getElementById('confirm-page').classList.remove('hidden');
+                
+                // Isi Data Konfirmasi (Pastikan Kode.gs mengembalikan data ini)
+                // Note: Jika Kode.gs Bapak berbeda strukturnya, sesuaikan variabel ini:
+                // Di sini saya asumsikan res.user berisi data, atau res langsung berisi data.
+                // Jika pakai Kode.gs Sekolah sebelumnya: res.user.nama
+                
+                const dataGuru = res.user || res; // Jaga-jaga struktur response
+
+                document.getElementById('guru-name').innerText = dataGuru.nama || dataGuru.namaLengkap || "-";
+                document.getElementById('guru-nip').innerText = dataGuru.nip || "-";
+                document.getElementById('guru-pangkat').innerText = dataGuru.pangkat || "Guru Ahli"; // Default jika kosong
+                document.getElementById('guru-mapel').innerText = dataGuru.mapel || dataGuru.mataPelajaran || "-";
+                
+                var imgElement = document.getElementById('guru-photo');
+                var fotoIdKirim = ""; 
+
+                // Logika Foto
+                // Cek apakah dataGuru.foto adalah ID atau URL lengkap
+                if (dataGuru.foto) {
+                   if(dataGuru.foto.includes('http')) {
+                      imgElement.src = dataGuru.foto; // Kalau URL
+                   } else {
+                      imgElement.src = "https://drive.google.com/thumbnail?id=" + dataGuru.foto + "&sz=w500"; // Kalau ID
+                   }
+                   fotoIdKirim = dataGuru.foto;
+                } else {
+                  imgElement.src = defaultPhoto;
+                }
+
+                // --- URL DASHBOARD ---
+                // Jika backend mengirim URL dashboard:
+                if(res.url) {
+                    urlTujuan = res.url;
+                } else {
+                    // Jika tidak, kita bisa set manual ke halaman dashboard (misal index.html di folder lain)
+                    // Atau biarkan kosong dulu
+                    urlTujuan = "dashboard.html"; // Sesuaikan nanti
+                }
+                
+                // Siapkan Link Tombol Dashboard
+                document.getElementById('btn-dashboard').onclick = function() {
+                  // Kirim data via URL parameters agar dashboard tahu siapa yang login
+                  // Contoh: dashboard.html?nama=Nizran&foto=...
+                  var finalLink = urlTujuan + "?nama=" + encodeURIComponent(dataGuru.nama) + "&foto=" + encodeURIComponent(fotoIdKirim);
+                  window.top.location.href = finalLink;
+                };
+
             } else {
-              imgElement.src = defaultPhoto;
+                // Login Gagal
+                s.style.color = "#dc3545";
+                s.innerText = res.message || "Login Gagal";
             }
 
-            // --- BAGIAN PENTING: MENGIRIM NAMA & FOTO KE URL ---
-            // Kita tambahkan parameter &foto=...
-            urlTujuan = res.url + "?nama=" + encodeURIComponent(res.nama) + "&foto=" + encodeURIComponent(fotoIdKirim);
-            
-            document.getElementById('btn-dashboard').onclick = function() {
-              window.top.location.href = urlTujuan;
-            };
-
-          } else {
+        } catch (error) {
+            console.error(error);
+            btn.innerText = "MASUK APLIKASI"; 
+            btn.style.opacity = "1";
+            btn.disabled = false;
             s.style.color = "#dc3545";
-            s.innerText = res.message;
-          }
-        }).checkLogin(u, p);
+            s.innerText = "Gagal terhubung ke Server. Periksa API_URL.";
+        }
       }
     </script>
   </body>
