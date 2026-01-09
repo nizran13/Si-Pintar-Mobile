@@ -289,14 +289,15 @@
                 var fotoIdKirim = ""; 
 
                 // Logika Foto
-                // Cek apakah dataGuru.foto adalah ID atau URL lengkap
-                if (dataGuru.foto) {
-                   if(dataGuru.foto.includes('http')) {
-                      imgElement.src = dataGuru.foto; // Kalau URL
+                // Kita ganti .foto menjadi .fotoId sesuai dengan Kode.gs
+                if (dataGuru.fotoId) {
+                   if(dataGuru.fotoId.includes('http')) {
+                      imgElement.src = dataGuru.fotoId; // Kalau URL
                    } else {
-                      imgElement.src = "https://drive.google.com/thumbnail?id=" + dataGuru.foto + "&sz=w500"; // Kalau ID
+                      // Ini untuk ID Google Drive (Sesuai Excel Bapak)
+                      imgElement.src = "https://drive.google.com/thumbnail?id=" + dataGuru.fotoId + "&sz=w500"; 
                    }
-                   fotoIdKirim = dataGuru.foto;
+                   fotoIdKirim = dataGuru.fotoId;
                 } else {
                   imgElement.src = defaultPhoto;
                 }
